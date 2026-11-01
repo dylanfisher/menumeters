@@ -86,7 +86,8 @@ hundred iterations later the file is an unmaintainable wall of special cases, an
 Before adding a rule, ask:
 
 - Can a tool enforce this instead? (formatter, linter, type checker, test, CI check)
-- Is this a one-time correction or a standing pattern? One-offs go in the conversation, not the file.
+- Is this a one-time correction or a standing pattern? One-offs go in the conversation, not the
+  file.
 - Does it replace an existing line rather than adding to it?
 
 If AGENTS.md exceeds ~50 lines, something needs to move into `docs/` or be deleted.

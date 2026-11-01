@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+# Build MenuMeters.app around the executable, so macOS treats it as its own app, with its own
+# bundle ID, permission grants and Dock icon, rather than as a child of Terminal. Prints the
+# bundle's path on stdout, the only line there, for other scripts to use:
+#   -c debug|release   build configuration (default debug)
+#   -a universal       build for arm64 and x86_64 (default: this Mac's architecture only)
+# Signs with the identity in $SIGN_ID when it is set, and ad hoc otherwise.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+product=MenuMeters
+config=debug
+universal=false
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -c) config="${2:?-c needs debug or release}"; shift 2 ;;
+    -a) [ "${2:-}" = universal ] || { echo "-a takes only universal" >&2; exit 1; }
+        universal=true; shift 2 ;;
+    *) printf 'unknown argument: %s\n' "$1" >&2; exit 1 ;;
+  esac
+done
+case "$config" in debug|release) ;; *) printf -- '-c must be debug or release, got %s\n' "$config" >&2; exit 1 ;; esac
+
+flags=(-c "$config")
+if [ "$universal" = true ]; then
+  # SwiftPM builds more than one architecture only through Xcode's build system, so with only
+  # the Command Line Tools the x86_64 half fails to link deep in the build.
+  if ! xcodebuild -version >/dev/null 2>&1; then
+    echo "a universal build needs Xcode, and $(xcode-select -p) is only the Command Line Tools." >&2
+    exit 1
+  fi
+  flags+=(--arch arm64 --arch x86_64)
+fi
+
+# The bundle ID is declared once in Swift, because it is also the log subsystem, and once in
+# Info.plist, because macOS reads it there. Refuse to build a bundle where the two disagree.
+identity=Sources/Base/AppIdentity.swift
+swift_id=$(sed -n 's/^public let bundleIdentifier = "\(.*\)"$/\1/p' "$identity")
+if [ -z "$swift_id" ]; then
+  echo "couldn't read bundleIdentifier from $identity" >&2; exit 1
+fi
+plist_id=$(plutil -extract CFBundleIdentifier raw Sources/App/Info.plist)
+if [ "$swift_id" != "$plist_id" ]; then
+  printf 'bundle ID differs: %s says %s, Sources/App/Info.plist says %s\n' \
+    "$identity" "$swift_id" "$plist_id" >&2
+  exit 1
+fi
+
+# Build output goes to stderr so stdout carries only the bundle path.
+swift build "${flags[@]}" --product "$product" >&2
+bin="$(swift build "${flags[@]}" --show-bin-path)"
+
+app=".build/$product.app"
+rm -rf "$app"
+mkdir -p "$app/Contents/MacOS"
+cp Sources/App/Info.plist "$app/Contents/Info.plist"
+cp "$bin/$product" "$app/Contents/MacOS/$product"
+
+# The hardened runtime is on in both cases, so anything it would break shows up now rather than
+# when the app is first notarized. macOS ties permission grants (camera, Full Disk Access) to
+# the signature: an ad hoc one changes with every build, a certificate's doesn't.
+if [ -n "${SIGN_ID:-}" ]; then
+  codesign --force --options runtime --sign "$SIGN_ID" "$app" >&2
+else
+  codesign --force --options runtime --sign - "$app" >&2
+  echo "SIGN_ID is not set, so $app is signed ad hoc: permission grants reset on each rebuild." >&2
+fi
+
+echo "$app"

@@ -3,72 +3,66 @@
 Where things live, and how to find one before you build a second. Read this before creating any
 new file.
 
-This file describes **shape, not contents** — conventions and search commands, never an inventory.
-An inventory would be a second copy of facts the code already holds, it would rot within a week,
-and it would have no error message when it diverged. If you catch yourself listing what exists
-here, stop: the grep is the list.
+This file describes **shape, not contents**: conventions and search commands, never an inventory.
+An inventory would be a second copy of what the code already says, and it would go stale without
+anyone noticing. If you catch yourself listing what exists here, stop. The search is the list.
 
 ## Find before you create
 
-The single rule that matters. AGENTS.md principles 1–3 (single source of truth, match the
-surrounding code, DRY on the third occurrence) all depend on it — none of them can be followed
-against a codebase you haven't searched.
+AGENTS.md principles 1–3 depend on this. None of them can be followed in a codebase you haven't
+searched.
 
 | Before adding… | Run |
 |---|---|
-| any named thing | `rg -i '<name>' --type {{RG_TYPE}}` |
-| a primitive | `ls {{PRIMITIVES}}/` |
-| a component | `ls {{COMPONENTS}}/` |
-| a helper / util | `rg 'export (function\|const)' {{LIB}}/` |
-| a config value | `rg '<KEY>' {{CONFIG}}` — config is read in one module only |
-| a type / interface | `rg '(type\|interface\|class) <Name>'` |
+| any named thing | `rg -i '<name>' --type swift` |
+| a building block | `ls Sources/Base/` |
+| a sampler, model type or store | `ls Sources/Meters/` |
+| a view, window or controller | `ls Sources/Interface/` |
+| a free function | `rg '^\s*(public )?func ' Sources/Base/` |
+| a file or folder path | `rg 'AppPaths' Sources/` (every path is built from `AppPaths`) |
+| a type | `rg '(struct\|class\|enum\|protocol\|actor) <Name>\b'` |
 
 If a search turns up something close but not identical, that's the second occurrence. Use it or
-duplicate it — do not abstract yet (principle 3).
+duplicate it; don't abstract yet (principle 3).
 
 ## Tiers
 
-The default vocabulary below is a recommendation, not a mandate. **Rename these to whatever fits
-the project** — `modules`, `services`, `packages`, `internal` are all fine. What must not change is
-the dependency direction.
-
-| Tier | Path | What belongs here | May import from |
+| Tier | Path | What belongs here | May import |
 |---|---|---|---|
-| **primitives** | `{{PRIMITIVES}}` | Smallest reusable units. No project-specific knowledge, no I/O, no config reads. Portable to another project as-is. | nothing in this table |
-| **components** | `{{COMPONENTS}}` | Compositions that know about this project — its domain types, its config, its conventions. | primitives |
-| **features** | `{{FEATURES}}` | Vertical slices a user or caller actually invokes. Routes, commands, endpoints, screens. | components, primitives |
-| **lib** | `{{LIB}}` | Pure cross-cutting helpers. No state. | primitives |
-| **config** | `{{CONFIG}}` | The one module that reads the environment and throws on a missing key. | nothing |
+| **base** | `Sources/Base` | Helpers with no app knowledge: text, math, the logger, the bundle ID. Foundation only. | nothing |
+| **meters** | `Sources/Meters` | The samplers (CPU, memory, disk, network), their history and readings, the config store and paths. Calls Mach, IOKit and sysctl; no AppKit, so it is testable without a menu bar. | base |
+| **interface** | `Sources/Interface` | AppKit views, view controllers, windows. No file-system calls. | meters, base |
+| **app** | `Sources/App` | `main.swift`, `AppDelegate` (where every object is built and wired), `Info.plist`. Kept thin. | everything |
 
-**Dependency direction is one-way: features → components → primitives.** Never upward, never
-sideways between features. If a primitive needs something from a component, it isn't a primitive.
+**Dependency direction is one-way: app → interface → meters → base.** Never upward.
 
-Enforce this with a tool rather than in prose — `eslint-plugin-import`'s `no-restricted-paths`,
-`dependency-cruiser`, `import-linter` (Python), or `go-arch-lint`. Wire it into `./scripts/check`
-and this paragraph becomes the only place it's written down.
+Each tier is a SwiftPM target, so `Package.swift` is the dependency map. The build rejects an
+import of any target that isn't a declared dependency, and an upward dependency is a cycle, which
+SwiftPM refuses. `scripts/arch` covers the rules the compiler can't see: no AppKit, SwiftUI, Cocoa
+or Carbon import in Base or Meters, no file-system calls in Interface or App, and no path logged as
+public. Each rule has a file in `scripts/arch-fixtures/` that breaks it, and the script fails if a
+rule stops catching its fixture. A new rule gets a fixture in the same change.
 
-If the stack has no such plugin, write `scripts/arch`: hold the tier table above as a map of tier →
-tiers it may import from, walk the source files under each tier, parse their import statements, and
-fail on any edge the map forbids. That is about forty lines in any language, and worth them — an
-unenforced dependency rule is one that has already been broken somewhere nobody has looked.
+A new target goes in `Package.swift`, this table and the paths line at the end of this file, in
+one commit.
 
 ## Naming
 
-- One thing per file; the filename is the thing's name.
-- Directory names plural, file names singular: `{{PRIMITIVES}}/button`, not `.../buttons`.
-- Tests sit beside what they test, or mirror the tree — pick one, never both.
-- {{Any project-specific convention: prefixes, suffixes, casing the formatter can't enforce}}
+- One type per file, named after it: `AppPaths.swift`. Extensions go in `Type+Topic.swift`.
+- Tests mirror the tree: `Sources/Meters/AppPaths.swift` → `Tests/MetersTests/AppPathsTests.swift`.
+- AppKit subclasses keep their AppKit suffix: `…WindowController`, `…View`, `…Panel`.
+- Put the unit in a name where the type doesn't carry it: `delaySeconds`, `volumeDecibels`.
 
 ## Promotion
 
-Things move up a tier deliberately, never by accident:
+Things move between tiers deliberately, never by accident:
 
-- **Third occurrence** → extract to the lowest tier that all three callers can reach (principle 3).
-- **Component loses its project knowledge** → it's a primitive now; move it down.
-- **Primitive grows a config read or a domain type** → it was never a primitive; move it up.
+- **Third occurrence** → extract to the lowest tier all three callers can reach (principle 3).
+- **Meters type loses its app knowledge** → it belongs in Base; move it down.
+- **Base type grows a domain type or a config read** → it belongs in Meters; move it up.
 
 A promotion is its own commit, separate from whatever work revealed it (principle 4).
 
-<!-- paths: {{PRIMITIVES}} {{COMPONENTS}} {{FEATURES}} {{LIB}} {{CONFIG}} -->
+<!-- paths: Sources/Base Sources/Meters Sources/Interface Sources/App -->
 <!-- ↑ scripts/check verifies every path above exists. Keep it in sync with the Tiers table;
      a rename that misses this line fails the gate, which is the point. -->
