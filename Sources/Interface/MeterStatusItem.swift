@@ -34,6 +34,15 @@ final class MeterStatusItem: NSObject {
         set { item.isVisible = newValue }
     }
 
+    /// Whether the meter is on but macOS isn't showing it: a crowded menu bar leaves the item
+    /// without a screen, or behind the active app's menus. Also true while the whole menu bar
+    /// is hidden, which `HiddenMeterNotice` checks for itself.
+    var isHiddenByMenuBar: Bool {
+        guard item.isVisible else { return false }
+        guard let window = item.button?.window, window.screen != nil else { return true }
+        return !window.occlusionState.contains(.visible)
+    }
+
     /// The item's width in points.
     var widthPoints: CGFloat { item.length }
 

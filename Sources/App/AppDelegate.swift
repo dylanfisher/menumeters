@@ -21,6 +21,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var networkMeter: NetworkMeterController?
     private var diskMeter: DiskMeterController?
     private var settingsWindow: SettingsWindowController?
+    private var hiddenMeterNotice: HiddenMeterNotice?
     /// The last save to the config file; each save waits for the one before, so the file ends
     /// with the last change made.
     private var saving: Task<Void, Never>?
@@ -80,6 +81,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         scheduler.add(diskMeter, intervalSeconds: config.disk.scheduledIntervalSeconds)
         self.diskMeter = diskMeter
+        hiddenMeterNotice = HiddenMeterNotice(
+            meters: { [weak self] in self?.meterVisibility() ?? [] },
+            showSettings: { [weak self] in self?.showSettings() })
+        hiddenMeterNotice?.scheduleCheck()
         settingsWindow = SettingsWindowController(
             title: "MenuMeters Settings", state: state, configFile: paths.configFile,
             hasTwoCoreKinds: cpuMeter.hasTwoCoreKinds
@@ -100,8 +105,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         scheduler.setInterval(of: diskMeter, seconds: config.disk.scheduledIntervalSeconds)
     }
 
+    private func meterVisibility() -> [HiddenMeterNotice.Meter] {
+        guard let cpuMeter, let memoryMeter, let networkMeter, let diskMeter else { return [] }
+        return [
+            ("CPU", { cpuMeter.isHiddenByMenuBar }), ("Memory", { memoryMeter.isHiddenByMenuBar }),
+            ("Network", { networkMeter.isHiddenByMenuBar }),
+            ("Disk", { diskMeter.isHiddenByMenuBar }),
+        ]
+    }
+
     private func settingsChanged(_ config: AppConfig) {
         apply(config)
+        // A meter switched on may not fit.
+        hiddenMeterNotice?.scheduleCheck()
         let previous = saving
         let store = store
         saving = Task {
