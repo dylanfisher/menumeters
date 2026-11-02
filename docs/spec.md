@@ -3,7 +3,7 @@
 What MenuMeters does, taken from [yujitach/menumeters](https://github.com/yujitach/menumeters), the
 fork this app rewrites. The behavior is theirs; the code is new. Where their implementation is
 better than what we would write, use the same approach and say so in a comment. Where it is
-worse, the "Efficiency" section says what we do instead.
+worse, the "Efficiency" section says what we do instead. [plan.md](plan.md) has the build order.
 
 ## Meters
 
