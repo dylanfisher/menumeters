@@ -33,7 +33,7 @@ Settled with the owner on 2026-11-01:
    fixed. Hand edits apply while the app runs. The settings window has a tab per meter, starting
    with CPU: on/off, interval, percentage, graph, graph width, core kinds. A changed setting
    applies without a relaunch.
-4. **Memory meter.** Pie and number displays from `host_statistics64`; the menu (free, used,
+4. **Memory meter** (done). Pie and number displays from `host_statistics64`; the menu (free, used,
    total, wired, active, inactive, compressed, page-ins and page-outs, swap); its settings tab.
 5. **Network meter.** Arrows and throughput from 64-bit `NET_RT_IFLIST2` counters, one buffer
    reused across ticks; the per-interface menu; its settings tab.
