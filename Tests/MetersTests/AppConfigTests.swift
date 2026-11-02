@@ -68,3 +68,19 @@ private func reason(_ text: String) -> String? {
     #expect(MemoryConfig().display == .pie && MemoryConfig().intervalSeconds == 10)
     #expect(try parse(#"{"memory": {"display": "number"}}"#).memory.display == .number)
 }
+
+@Test func theNetworkMeterShowsArrowsEveryTwoSecondsByDefault() throws {
+    let network = try parse("{}").network
+    #expect(network.showsArrows && !network.showsThroughput && network.intervalSeconds == 2)
+    #expect(
+        reason(#"{"network": {"showsArrows": false}}"#)
+            == "network.showsArrows and network.showsThroughput can't both be false; "
+            + "set network.enabled to false to hide the meter")
+}
+
+@Test func aMeterThatIsOffHasNoInterval() {
+    var cpu = CPUConfig()
+    #expect(cpu.scheduledIntervalSeconds == 2)
+    cpu.isEnabled = false
+    #expect(cpu.scheduledIntervalSeconds == nil)
+}

@@ -6,23 +6,26 @@ import Foundation
 public struct AppConfig: Sendable, Equatable, Codable {
     public var cpu = CPUConfig()
     public var memory = MemoryConfig()
+    public var network = NetworkConfig()
 
     public init() {}
 
     enum Key: String, CodingKey, CaseIterable {
-        case cpu, memory
+        case cpu, memory, network
     }
 
     public init(from decoder: any Decoder) throws {
         let section = try ConfigSection<Key>(decoder)
         cpu = try section.section(.cpu, default: cpu)
         memory = try section.section(.memory, default: memory)
+        network = try section.section(.network, default: network)
     }
 
     public func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: Key.self)
         try container.encode(cpu, forKey: .cpu)
         try container.encode(memory, forKey: .memory)
+        try container.encode(network, forKey: .network)
     }
 
     /// The config `data` sets, or what is wrong with it.
