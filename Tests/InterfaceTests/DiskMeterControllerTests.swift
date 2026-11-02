@@ -37,11 +37,3 @@ import Testing
     meter.apply(config)
     #expect(!meter.isVisible)
 }
-
-@MainActor
-@Test func aMeterThatIsOffIsNeverHiddenByTheMenuBar() {
-    var config = DiskConfig()
-    config.isEnabled = false
-    let meter = DiskMeterController(config: config, volumeStore: VolumeStore()) {}
-    #expect(!meter.isHiddenByMenuBar)
-}

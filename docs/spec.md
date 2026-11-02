@@ -49,8 +49,7 @@ Four meters, each its own status item, each switched on or off on its own.
 
 ### App-wide
 
-A settings window that edits `~/.config/menumeters/config.json`, launch at login, and a notice
-when macOS hides a meter in a crowded menu bar.
+A settings window that edits `~/.config/menumeters/config.json` and launch at login.
 
 ## Left out
 
@@ -59,6 +58,8 @@ when macOS hides a meter in a crowded menu bar.
 - AppleScript that clicks Activity Monitor tabs; it needs the Apple Events entitlement.
 - Sparkle updates: a package dependency. An update check against GitHub Releases replaces it,
   decided when it is built.
+- The alert when macOS hides a meter in a crowded menu bar: it fired on false alarms
+  ([0008](decisions/0008-no-hidden-meter-alert.md)).
 
 ## Efficiency
 

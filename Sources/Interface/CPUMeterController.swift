@@ -54,9 +54,6 @@ public final class CPUMeterController: NSObject, ScheduledMeter, NSMenuDelegate 
     /// Whether the status item is in the menu bar.
     var isVisible: Bool { statusItem.isVisible }
 
-    /// Whether the meter is on but macOS isn't showing it.
-    public var isHiddenByMenuBar: Bool { statusItem.isHiddenByMenuBar }
-
     /// The status item's width in points.
     var widthPoints: CGFloat { statusItem.widthPoints }
 

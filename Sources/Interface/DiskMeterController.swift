@@ -37,9 +37,6 @@ public final class DiskMeterController: NSObject, ScheduledMeter, NSMenuDelegate
     /// Whether the status item is in the menu bar.
     var isVisible: Bool { statusItem.isVisible }
 
-    /// Whether the meter is on but macOS isn't showing it.
-    public var isHiddenByMenuBar: Bool { statusItem.isHiddenByMenuBar }
-
     /// Shows the meter as `config` says. The interval is the scheduler's to apply.
     public func apply(_ config: DiskConfig) {
         statusItem.isVisible = config.isEnabled
