@@ -106,3 +106,17 @@ private func controller(
     tab.intervalSlider.sendAction(tab.intervalSlider.action, to: tab.intervalSlider.target)
     #expect(sent.last?.network.intervalSeconds == 3.5)
 }
+
+@MainActor
+@Test func theDiskTabSendsTenthsOfASecond() {
+    var sent: [AppConfig] = []
+    let settings = controller { sent.append($0) }
+    let tab = settings.diskTab
+    _ = tab.view
+    tab.intervalSlider.doubleValue = 1.234
+    tab.intervalSlider.sendAction(tab.intervalSlider.action, to: tab.intervalSlider.target)
+    #expect(sent.last?.disk.intervalSeconds == 1.2)
+    tab.enabledBox.performClick(nil)
+    #expect(sent.last?.disk.isEnabled == false)
+    #expect(!tab.intervalSlider.isEnabled)
+}

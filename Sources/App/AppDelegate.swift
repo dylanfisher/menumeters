@@ -14,10 +14,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let paths: AppPaths
     private let store: ConfigStore
     private let scheduler = MeterScheduler()
+    private let volumeStore = VolumeStore()
     /// Built from the first state of the config file, which is read off the main thread.
     private var cpuMeter: CPUMeterController?
     private var memoryMeter: MemoryMeterController?
     private var networkMeter: NetworkMeterController?
+    private var diskMeter: DiskMeterController?
     private var settingsWindow: SettingsWindowController?
     /// The last save to the config file; each save waits for the one before, so the file ends
     /// with the last change made.
@@ -73,6 +75,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         scheduler.add(networkMeter, intervalSeconds: config.network.scheduledIntervalSeconds)
         self.networkMeter = networkMeter
+        let diskMeter = DiskMeterController(config: config.disk, volumeStore: volumeStore) {
+            [weak self] in self?.showSettings()
+        }
+        scheduler.add(diskMeter, intervalSeconds: config.disk.scheduledIntervalSeconds)
+        self.diskMeter = diskMeter
         settingsWindow = SettingsWindowController(
             title: "MenuMeters Settings", state: state, configFile: paths.configFile,
             hasTwoCoreKinds: cpuMeter.hasTwoCoreKinds
@@ -80,7 +87,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func apply(_ config: AppConfig) {
-        guard let cpuMeter, let memoryMeter, let networkMeter else {
+        guard let cpuMeter, let memoryMeter, let networkMeter, let diskMeter else {
             preconditionFailure("applying a config before the meters exist")
         }
         cpuMeter.apply(config.cpu)
@@ -89,6 +96,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         scheduler.setInterval(of: memoryMeter, seconds: config.memory.scheduledIntervalSeconds)
         networkMeter.apply(config.network)
         scheduler.setInterval(of: networkMeter, seconds: config.network.scheduledIntervalSeconds)
+        diskMeter.apply(config.disk)
+        scheduler.setInterval(of: diskMeter, seconds: config.disk.scheduledIntervalSeconds)
     }
 
     private func settingsChanged(_ config: AppConfig) {
