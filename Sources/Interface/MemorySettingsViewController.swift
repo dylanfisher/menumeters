@@ -36,9 +36,6 @@ final class MemorySettingsViewController: NSViewController {
     override func loadView() {
         intervalSlider.minValue = MemoryConfig.intervalSecondsRange.lowerBound
         intervalSlider.maxValue = MemoryConfig.intervalSecondsRange.upperBound
-        intervalSlider.widthAnchor.constraint(equalToConstant: 200).isActive = true
-        intervalLabel.font = .monospacedDigitSystemFont(
-            ofSize: NSFont.systemFontSize, weight: .regular)
         for display in MemoryConfig.Display.allCases {
             displayPopUp.addItem(withTitle: Self.displayTitles[display] ?? display.rawValue)
         }
@@ -47,27 +44,14 @@ final class MemorySettingsViewController: NSViewController {
             control.action = #selector(controlChanged(_:))
         }
 
-        let interval = NSStackView(views: [intervalSlider, intervalLabel])
-        interval.alignment = .firstBaseline
-        let grid = NSGridView(views: [
+        view = SettingsPage.make([
             [NSGridCell.emptyContentView, enabledBox],
-            [NSTextField(labelWithString: "Update every:"), interval],
-            [NSTextField(labelWithString: "Display:"), displayPopUp],
+            [
+                SettingsPage.label("Update every:"),
+                SettingsPage.sliderRow(intervalSlider, intervalLabel),
+            ],
+            [SettingsPage.label("Display:"), displayPopUp],
         ])
-        grid.column(at: 0).xPlacement = .trailing
-        grid.rowAlignment = .firstBaseline
-        grid.rowSpacing = 8
-        let container = NSView()
-        grid.translatesAutoresizingMaskIntoConstraints = false
-        container.addSubview(grid)
-        NSLayoutConstraint.activate([
-            grid.topAnchor.constraint(equalTo: container.topAnchor, constant: 20),
-            grid.bottomAnchor.constraint(lessThanOrEqualTo: container.bottomAnchor, constant: -20),
-            grid.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 20),
-            grid.trailingAnchor.constraint(
-                lessThanOrEqualTo: container.trailingAnchor, constant: -20),
-        ])
-        view = container
         refresh()
     }
 

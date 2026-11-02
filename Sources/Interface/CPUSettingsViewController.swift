@@ -54,40 +54,18 @@ final class CPUSettingsViewController: NSViewController {
             control.target = self
             control.action = #selector(controlChanged(_:))
         }
-        for slider in [intervalSlider, widthSlider] {
-            slider.widthAnchor.constraint(equalToConstant: 200).isActive = true
-        }
-        for label in [intervalLabel, widthLabel] {
-            label.font = .monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
-        }
-
         let empty = NSGridCell.emptyContentView
-        let grid = NSGridView(views: [
+        view = SettingsPage.make([
             [empty, enabledBox],
             [
-                NSTextField(labelWithString: "Update every:"),
-                Self.row(intervalSlider, intervalLabel),
+                SettingsPage.label("Update every:"),
+                SettingsPage.sliderRow(intervalSlider, intervalLabel),
             ],
-            [NSTextField(labelWithString: "Show:"), percentBox],
+            [SettingsPage.label("Show:"), percentBox],
             [empty, graphBox],
-            [NSTextField(labelWithString: "Graph width:"), Self.row(widthSlider, widthLabel)],
+            [SettingsPage.label("Graph width:"), SettingsPage.sliderRow(widthSlider, widthLabel)],
             [empty, coreKindsBox],
         ])
-        grid.column(at: 0).xPlacement = .trailing
-        grid.rowAlignment = .firstBaseline
-        grid.rowSpacing = 8
-        grid.column(at: 0).leadingPadding = 0
-        let container = NSView()
-        grid.translatesAutoresizingMaskIntoConstraints = false
-        container.addSubview(grid)
-        NSLayoutConstraint.activate([
-            grid.topAnchor.constraint(equalTo: container.topAnchor, constant: 20),
-            grid.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -20),
-            grid.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 20),
-            grid.trailingAnchor.constraint(
-                lessThanOrEqualTo: container.trailingAnchor, constant: -20),
-        ])
-        view = container
         refresh()
     }
 
@@ -95,12 +73,6 @@ final class CPUSettingsViewController: NSViewController {
     func show(_ config: CPUConfig) {
         self.config = config
         if isViewLoaded { refresh() }
-    }
-
-    private static func row(_ slider: NSSlider, _ label: NSTextField) -> NSStackView {
-        let stack = NSStackView(views: [slider, label])
-        stack.alignment = .firstBaseline
-        return stack
     }
 
     private func refresh() {
