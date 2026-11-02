@@ -35,7 +35,7 @@ Settled with the owner on 2026-11-01:
    applies without a relaunch.
 4. **Memory meter** (done). Pie and number displays from `host_statistics64`; the menu (free, used,
    total, wired, active, inactive, compressed, page-ins and page-outs, swap); its settings tab.
-5. **Network meter.** Arrows and throughput from 64-bit `NET_RT_IFLIST2` counters, one buffer
+5. **Network meter** (done). Arrows and throughput from 64-bit `NET_RT_IFLIST2` counters, one buffer
    reused across ticks; the per-interface menu; its settings tab.
 6. **Disk meter.** One activity light style from IOKit block storage statistics; volumes from
    IOKit matching notifications; the volume menu with open and eject; its settings tab.
