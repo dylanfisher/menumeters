@@ -5,21 +5,24 @@ import Foundation
 /// (docs/decisions/0003-config-file.md).
 public struct AppConfig: Sendable, Equatable, Codable {
     public var cpu = CPUConfig()
+    public var memory = MemoryConfig()
 
     public init() {}
 
     enum Key: String, CodingKey, CaseIterable {
-        case cpu
+        case cpu, memory
     }
 
     public init(from decoder: any Decoder) throws {
         let section = try ConfigSection<Key>(decoder)
         cpu = try section.section(.cpu, default: cpu)
+        memory = try section.section(.memory, default: memory)
     }
 
     public func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: Key.self)
         try container.encode(cpu, forKey: .cpu)
+        try container.encode(memory, forKey: .memory)
     }
 
     /// The config `data` sets, or what is wrong with it.

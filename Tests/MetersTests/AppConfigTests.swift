@@ -45,7 +45,10 @@ private func reason(_ text: String) -> String? {
             == "cpu.graphWidthPoints must be a whole number from 11 to 88")
     #expect(reason(#"{"cpu": {"showsGraph": "yes"}}"#) == "cpu.showsGraph must be true or false")
     #expect(reason(#"{"cpu": {"interval": 1}}"#) == "unknown key cpu.interval")
-    #expect(reason(#"{"memory": {}}"#) == "unknown key memory")
+    #expect(reason(#"{"battery": {}}"#) == "unknown key battery")
+    #expect(
+        reason(#"{"memory": {"display": "bar"}}"#)
+            == #"memory.display must be one of "pie", "number", not "bar""#)
     #expect(
         reason(#"{"cpu": 1}"#) == "cpu must be a JSON object, its keys and values in braces")
     #expect(reason("[]") == "the file must be a JSON object, its keys and values in braces")
@@ -58,4 +61,10 @@ private func reason(_ text: String) -> String? {
         reason(#"{"cpu": {"showsPercent": false, "showsGraph": false}}"#)
             == "cpu.showsPercent and cpu.showsGraph can't both be false; "
             + "set cpu.enabled to false to hide the meter")
+}
+
+@Test func theMemoryMeterIsAPieEveryTenSecondsByDefault() throws {
+    #expect(try parse("{}").memory == MemoryConfig())
+    #expect(MemoryConfig().display == .pie && MemoryConfig().intervalSeconds == 10)
+    #expect(try parse(#"{"memory": {"display": "number"}}"#).memory.display == .number)
 }

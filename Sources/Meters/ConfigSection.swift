@@ -46,6 +46,17 @@ struct ConfigSection<Key: CodingKey & CaseIterable> {
         return read
     }
 
+    /// One of a fixed set of names, such as `"pie"`.
+    func choice<T: RawRepresentable & CaseIterable>(_ key: Key, default value: T)
+        throws(ConfigError) -> T where T.RawValue == String
+    {
+        let names = T.allCases.map { "\"\($0.rawValue)\"" }
+        let kind = "one of " + names.joined(separator: ", ")
+        guard let read = try decode(key, as: String.self, kind) else { return value }
+        guard let choice = T(rawValue: read) else { throw invalid(key, kind, not: "\"\(read)\"") }
+        return choice
+    }
+
     /// A nested section, read by its type's own `init(from:)`.
     func section<T: Decodable>(_ key: Key, default value: T) throws(ConfigError) -> T {
         do {
