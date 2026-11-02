@@ -1,3 +1,5 @@
+import AppKit
+import Foundation
 import Meters
 import Testing
 
@@ -23,4 +25,22 @@ import Testing
     config.isEnabled = false
     meter.apply(config)
     #expect(!meter.isVisible)
+}
+
+@MainActor
+@Test func theMenuListsTheTopProcesses() async throws {
+    let meter = CPUMeterController(config: CPUConfig()) {}
+    let menu = NSMenu()
+    meter.menuWillOpen(menu)
+    #expect(meter.processItems.count == CPUMeterController.topProcessCount)
+    #expect(menu.items.contains { $0.title == "Top processes" })
+    // The test process works, so it uses some CPU between the two samples.
+    let end = Date().addingTimeInterval(0.2)
+    var spins = 0
+    while Date() < end { spins &+= 1 }
+    meter.updateProcessItems()
+    let first = try #require(meter.processItems.first)
+    #expect(!first.isHidden && first.title.hasSuffix("%"))
+    meter.menuDidClose(menu)
+    #expect(CPUMeterController.percent(0.123) == "12.3%")
 }

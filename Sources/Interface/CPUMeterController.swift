@@ -19,6 +19,14 @@ public final class CPUMeterController: NSObject, ScheduledMeter, NSMenuDelegate 
     private let statusItem: MeterStatusItem
     private var loadItems: [(cores: [Int], label: String, item: NSMenuItem)] = []
     private var menuIsOpen = false
+    private let processSampler = ProcessSampler()
+    /// One line per top process, made when the menu opens; a line with no process is hidden.
+    private(set) var processItems: [NSMenuItem] = []
+
+    /// How many processes the menu lists, yujitach's default.
+    static let topProcessCount = 5
+    /// How long after the menu opens the first process list shows; it needs two samples.
+    private static let firstProcessSampleNanoseconds: UInt64 = 500_000_000
 
     public init(config: CPUConfig, showSettings: @escaping () -> Void) {
         let coreCount = sampler.processorCount
@@ -78,7 +86,10 @@ public final class CPUMeterController: NSObject, ScheduledMeter, NSMenuDelegate 
             histories[row].append(CoreLoad.average(of: sampler.loads, cores: rows[row]))
         }
         view.show(histories: histories)
-        if menuIsOpen { updateLoadItems() }
+        if menuIsOpen {
+            updateLoadItems()
+            updateProcessItems()
+        }
     }
 
     private static func rows(config: CPUConfig, topology: CoreTopology) -> [[Int]] {
@@ -102,6 +113,7 @@ public final class CPUMeterController: NSObject, ScheduledMeter, NSMenuDelegate 
 
     public func menuDidClose(_ menu: NSMenu) {
         menuIsOpen = false
+        processSampler.reset()
     }
 
     private func rebuild(_ menu: NSMenu) {
@@ -125,8 +137,54 @@ public final class CPUMeterController: NSObject, ScheduledMeter, NSMenuDelegate 
         menu.addItem(MeterStatusItem.infoItem("Load average: \(averages.joined(separator: "  "))"))
 
         menu.addItem(.separator())
+        menu.addItem(MeterStatusItem.infoItem("Top processes"))
+        processItems = (0..<Self.topProcessCount).map { index in
+            let item = MeterStatusItem.infoItem(index == 0 ? "Measuring…" : "")
+            item.indentationLevel = 1
+            item.isHidden = index > 0
+            menu.addItem(item)
+            return item
+        }
+        startProcessSampling()
+
+        menu.addItem(.separator())
         menu.addItem(actionItem("Open Activity Monitor", #selector(openActivityMonitor(_:))))
         statusItem.addClosingItems(to: menu)
+    }
+
+    /// Takes the first process sample now and shows the list once a second has been taken;
+    /// after that, each tick updates it while the menu is open.
+    private func startProcessSampling() {
+        processSampler.reset()
+        _ = processSampler.sample(top: Self.topProcessCount)
+        Task { [weak self] in
+            try? await Task.sleep(nanoseconds: Self.firstProcessSampleNanoseconds)
+            guard let self, self.menuIsOpen else { return }
+            self.updateProcessItems()
+        }
+    }
+
+    func updateProcessItems() {
+        let top = processSampler.sample(top: Self.topProcessCount)
+        for (index, item) in processItems.enumerated() {
+            guard index < top.count else {
+                item.isHidden = index > 0
+                if index == 0 { item.title = "No processes using the CPU" }
+                continue
+            }
+            let process = top[index]
+            let app = NSRunningApplication(processIdentifier: process.pid)
+            item.title = "\(app?.localizedName ?? process.name)  \(Self.percent(process.share))"
+            let icon = app?.icon?.copy() as? NSImage
+            icon?.size = NSSize(width: 16, height: 16)
+            item.image = icon
+            item.isHidden = false
+        }
+    }
+
+    /// A share of one core as Activity Monitor writes it: "12.3%".
+    nonisolated static func percent(_ share: Double) -> String {
+        String(format: "%.1f%%", share * 100)
     }
 
     private var coreSummary: String {
