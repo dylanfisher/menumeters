@@ -1,8 +1,9 @@
-/// The disk meter's settings, the `disk` section of the config file. The interval default and
-/// range are yujitach's.
+/// The disk meter's settings, the `disk` section of the config file. The interval range is
+/// yujitach's; the default is 1 s rather than their 0.3 s, since each change of the light costs a
+/// status item redraw (docs/decisions/0005-disk-interval-1-s.md).
 public struct DiskConfig: Sendable, Equatable, Codable {
     public var isEnabled = true
-    public var intervalSeconds = 0.3
+    public var intervalSeconds = 1.0
 
     public init() {}
 
