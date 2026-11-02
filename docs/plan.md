@@ -27,7 +27,7 @@ Settled with the owner on 2026-11-01:
    sleep; each meter its own status item.
 2. **CPU meter** (done). Load per core, history, percentage and graph, redraw only on change.
    Menu: processor, cores, load per core kind, uptime, load average, Open Activity Monitor.
-3. **Config file and settings window.** `~/.config/menumeters/config.json` holds one section
+3. **Config file and settings window** (done). `~/.config/menumeters/config.json` holds one section
    per meter, each with an on/off switch. Read and written in Meters, off the main thread; a
    file that doesn't parse is logged and left alone, and the app runs on defaults until it is
    fixed. Hand edits apply while the app runs. The settings window has a tab per meter, starting
