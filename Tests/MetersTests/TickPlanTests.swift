@@ -53,3 +53,26 @@ private func due(_ plan: inout TickPlan, at now: UInt64) -> [Int] {
     _ = plan.add(intervalNanoseconds: second, now: 0)
     #expect(plan.leewayNanoseconds == second / 5)
 }
+
+@Test func aMeterThatIsOffIsNeverDueAndSetsNoDeadline() {
+    var plan = TickPlan()
+    let cpu = plan.add(intervalNanoseconds: nil, now: 0)
+    #expect(due(&plan, at: 0) == [])
+    #expect(plan.nextDeadline == nil)
+    #expect(plan.leewayNanoseconds == nil)
+    plan.setInterval(cpu, nanoseconds: second, now: 5 * second)
+    #expect(due(&plan, at: 5 * second) == [cpu])
+    plan.setInterval(cpu, nanoseconds: nil, now: 6 * second)
+    #expect(due(&plan, at: 100 * second) == [])
+}
+
+@Test func aShorterIntervalBringsTheNextTickCloserAndALongerOneLeavesIt() {
+    var plan = TickPlan()
+    let cpu = plan.add(intervalNanoseconds: 10 * second, now: 0)
+    _ = due(&plan, at: 0)
+    plan.setInterval(cpu, nanoseconds: 2 * second, now: 1 * second)
+    #expect(plan.nextDeadline == 3 * second)
+    plan.setInterval(cpu, nanoseconds: 20 * second, now: 2 * second)
+    #expect(plan.nextDeadline == 3 * second)
+    #expect(plan.leewayNanoseconds == 4 * second)
+}
