@@ -39,6 +39,6 @@ Settled with the owner on 2026-11-01:
    reused across ticks; the per-interface menu; its settings tab.
 6. **Disk meter** (done). One activity light style from IOKit block storage statistics; volumes from
    IOKit matching notifications; the volume menu with open and eject; its settings tab.
-7. **Extras.** Top processes in the CPU menu (`proc_pid_rusage`, sampled only while the menu is
+7. **Extras** (done). Top processes in the CPU menu (`proc_pid_rusage`, sampled only while the menu is
    open), the hidden-meter notice on menu bar and screen changes, launch at login (LaunchAgent
    on macOS 12, `SMAppService` behind `#available` on 13 and later).
