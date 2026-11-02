@@ -13,7 +13,8 @@ private let logger = moduleLogger()
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let paths: AppPaths
     private let settingsWindow: SettingsWindowController
-    private var statusItem: NSStatusItem?
+    private let scheduler = MeterScheduler()
+    private var cpuMeter: CPUMeterController?
 
     override init() {
         paths = .standard
@@ -23,26 +24,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         logger.info("launched; config file at \(self.paths.configFile.path)")
-        statusItem = makeStatusItem()
+        let config = CPUConfig()
+        let cpuMeter = CPUMeterController(config: config) { [weak self] in self?.showSettings() }
+        scheduler.add(cpuMeter, intervalSeconds: config.intervalSeconds)
+        self.cpuMeter = cpuMeter
+        pauseWhileDisplaysSleep()
     }
 
-    /// A placeholder item with Settings and Quit, until the meters draw their own items.
-    private func makeStatusItem() -> NSStatusItem {
-        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        item.button?.title = "MM"
-        let menu = NSMenu()
-        let settings = menu.addItem(
-            withTitle: "Settings…", action: #selector(showSettings(_:)), keyEquivalent: ",")
-        settings.target = self
-        menu.addItem(.separator())
-        menu.addItem(
-            withTitle: "Quit MenuMeters", action: #selector(NSApplication.terminate(_:)),
-            keyEquivalent: "q")
-        item.menu = menu
-        return item
+    /// Nothing reads the menu bar while the displays sleep. Yujitach's fork keeps sampling.
+    private func pauseWhileDisplaysSleep() {
+        let center = NSWorkspace.shared.notificationCenter
+        center.addObserver(
+            self, selector: #selector(displaysDidSleep(_:)),
+            name: NSWorkspace.screensDidSleepNotification, object: nil)
+        center.addObserver(
+            self, selector: #selector(displaysDidWake(_:)),
+            name: NSWorkspace.screensDidWakeNotification, object: nil)
     }
 
-    @objc private func showSettings(_ sender: Any?) {
+    @objc private func displaysDidSleep(_ notification: Notification) {
+        scheduler.pause()
+    }
+
+    @objc private func displaysDidWake(_ notification: Notification) {
+        scheduler.resume()
+    }
+
+    private func showSettings() {
         settingsWindow.showWindow(nil)
         // `NSApp.activate()` needs macOS 14.
         NSApp.activate(ignoringOtherApps: true)
