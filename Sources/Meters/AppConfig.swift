@@ -7,11 +7,12 @@ public struct AppConfig: Sendable, Equatable, Codable {
     public var cpu = CPUConfig()
     public var memory = MemoryConfig()
     public var network = NetworkConfig()
+    public var disk = DiskConfig()
 
     public init() {}
 
     enum Key: String, CodingKey, CaseIterable {
-        case cpu, memory, network
+        case cpu, memory, network, disk
     }
 
     public init(from decoder: any Decoder) throws {
@@ -19,6 +20,7 @@ public struct AppConfig: Sendable, Equatable, Codable {
         cpu = try section.section(.cpu, default: cpu)
         memory = try section.section(.memory, default: memory)
         network = try section.section(.network, default: network)
+        disk = try section.section(.disk, default: disk)
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -26,6 +28,7 @@ public struct AppConfig: Sendable, Equatable, Codable {
         try container.encode(cpu, forKey: .cpu)
         try container.encode(memory, forKey: .memory)
         try container.encode(network, forKey: .network)
+        try container.encode(disk, forKey: .disk)
     }
 
     /// The config `data` sets, or what is wrong with it.

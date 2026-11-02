@@ -12,3 +12,4 @@ extension MeterConfig {
 extension CPUConfig: MeterConfig {}
 extension MemoryConfig: MeterConfig {}
 extension NetworkConfig: MeterConfig {}
+extension DiskConfig: MeterConfig {}

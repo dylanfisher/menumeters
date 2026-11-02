@@ -84,3 +84,10 @@ private func reason(_ text: String) -> String? {
     cpu.isEnabled = false
     #expect(cpu.scheduledIntervalSeconds == nil)
 }
+
+@Test func theDiskMeterTicksEveryThreeTenthsOfASecondByDefault() throws {
+    #expect(try parse("{}").disk.intervalSeconds == 0.3)
+    #expect(
+        reason(#"{"disk": {"intervalSeconds": 0}}"#)
+            == "disk.intervalSeconds must be a number from 0.1 to 5, not 0")
+}
