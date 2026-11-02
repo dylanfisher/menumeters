@@ -73,3 +73,20 @@ private func controller(
     #expect(settings.cpuTab.enabledBox.isEnabled)
     #expect(settings.problemLabel.isHidden)
 }
+
+@MainActor
+@Test func theMemoryTabSendsItsDisplayAndWholeSeconds() {
+    var sent: [AppConfig] = []
+    let settings = controller { sent.append($0) }
+    let tab = settings.memoryTab
+    _ = tab.view
+    tab.displayPopUp.selectItem(at: 1)
+    tab.displayPopUp.sendAction(tab.displayPopUp.action, to: tab.displayPopUp.target)
+    #expect(sent.last?.memory.display == .number)
+    tab.intervalSlider.doubleValue = 4.4
+    tab.intervalSlider.sendAction(tab.intervalSlider.action, to: tab.intervalSlider.target)
+    #expect(sent.last?.memory.intervalSeconds == 4)
+    #expect(sent.last?.memory.display == .number)
+    settings.show(.init(config: AppConfig(), problem: ConfigError("x"), isFileBroken: true))
+    #expect(!tab.displayPopUp.isEnabled)
+}

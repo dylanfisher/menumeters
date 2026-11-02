@@ -16,6 +16,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let scheduler = MeterScheduler()
     /// Built from the first state of the config file, which is read off the main thread.
     private var cpuMeter: CPUMeterController?
+    private var memoryMeter: MemoryMeterController?
     private var settingsWindow: SettingsWindowController?
     /// The last save to the config file; each save waits for the one before, so the file ends
     /// with the last change made.
@@ -61,6 +62,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         scheduler.add(cpuMeter, intervalSeconds: Self.interval(config.cpu))
         self.cpuMeter = cpuMeter
+        let memoryMeter = MemoryMeterController(config: config.memory) { [weak self] in
+            self?.showSettings()
+        }
+        scheduler.add(memoryMeter, intervalSeconds: Self.interval(config.memory))
+        self.memoryMeter = memoryMeter
         settingsWindow = SettingsWindowController(
             title: "MenuMeters Settings", state: state, configFile: paths.configFile,
             hasTwoCoreKinds: cpuMeter.hasTwoCoreKinds
@@ -68,9 +74,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func apply(_ config: AppConfig) {
-        guard let cpuMeter else { preconditionFailure("applying a config before the meters exist") }
+        guard let cpuMeter, let memoryMeter else {
+            preconditionFailure("applying a config before the meters exist")
+        }
         cpuMeter.apply(config.cpu)
         scheduler.setInterval(of: cpuMeter, seconds: Self.interval(config.cpu))
+        memoryMeter.apply(config.memory)
+        scheduler.setInterval(of: memoryMeter, seconds: Self.interval(config.memory))
     }
 
     private func settingsChanged(_ config: AppConfig) {
@@ -86,6 +96,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// The scheduler's interval for a meter: nil while it is off.
     private static func interval(_ cpu: CPUConfig) -> Double? {
         cpu.isEnabled ? cpu.intervalSeconds : nil
+    }
+
+    private static func interval(_ memory: MemoryConfig) -> Double? {
+        memory.isEnabled ? memory.intervalSeconds : nil
     }
 
     /// Nothing reads the menu bar while the displays sleep. Yujitach's fork keeps sampling.

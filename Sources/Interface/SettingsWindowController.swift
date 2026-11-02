@@ -10,6 +10,7 @@ public final class SettingsWindowController: NSWindowController {
     private let onChange: (AppConfig) -> Void
     private let configFile: URL
     let cpuTab: CPUSettingsViewController
+    let memoryTab: MemorySettingsViewController
     let problemLabel = NSTextField(wrappingLabelWithString: "")
 
     /// `onChange` gets the whole config after each change a control makes.
@@ -20,10 +21,13 @@ public final class SettingsWindowController: NSWindowController {
         config = state.config
         self.onChange = onChange
         self.configFile = configFile
+        // The tabs are made before `self`, so their changes reach it through these.
         var cpuChange: (CPUConfig) -> Void = { _ in }
+        var memoryChange: (MemoryConfig) -> Void = { _ in }
         cpuTab = CPUSettingsViewController(
             config: state.config.cpu, hasTwoCoreKinds: hasTwoCoreKinds
         ) { cpuChange($0) }
+        memoryTab = MemorySettingsViewController(config: state.config.memory) { memoryChange($0) }
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 480, height: 300),
             styleMask: [.titled, .closable],
@@ -35,6 +39,7 @@ public final class SettingsWindowController: NSWindowController {
         window.isReleasedWhenClosed = false
         super.init(window: window)
         cpuChange = { [weak self] cpu in self?.change { $0.cpu = cpu } }
+        memoryChange = { [weak self] memory in self?.change { $0.memory = memory } }
         window.contentView = makeContent()
         window.setContentSize(window.contentView?.fittingSize ?? window.frame.size)
         window.center()
@@ -52,6 +57,8 @@ public final class SettingsWindowController: NSWindowController {
         config = state.config
         cpuTab.show(state.config.cpu)
         cpuTab.isEditable = !state.isFileBroken
+        memoryTab.show(state.config.memory)
+        memoryTab.isEditable = !state.isFileBroken
         problemLabel.isHidden = state.problem == nil
         guard let problem = state.problem else { return }
         problemLabel.stringValue =
@@ -68,9 +75,11 @@ public final class SettingsWindowController: NSWindowController {
 
     private func makeContent() -> NSView {
         let tabs = NSTabView()
-        let cpuItem = NSTabViewItem(viewController: cpuTab)
-        cpuItem.label = "CPU"
-        tabs.addTabViewItem(cpuItem)
+        for tab in [cpuTab, memoryTab] as [NSViewController] {
+            let item = NSTabViewItem(viewController: tab)
+            item.label = tab.title ?? ""
+            tabs.addTabViewItem(item)
+        }
 
         let path = (configFile.path as NSString).abbreviatingWithTildeInPath
         let fileLabel = NSTextField(labelWithString: "Settings are saved in \(path).")
