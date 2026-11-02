@@ -19,7 +19,7 @@ let package = Package(
         .executableTarget(
             name: "App",
             dependencies: ["Interface", "Meters", "Base"],
-            exclude: ["Info.plist"],
+            exclude: ["Info.plist", "AppIcon.svg"],
             swiftSettings: strictSwift
         ),
         .testTarget(name: "BaseTests", dependencies: ["Base"], swiftSettings: strictSwift),

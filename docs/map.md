@@ -32,7 +32,7 @@ duplicate it; don't abstract yet (principle 3).
 | **base** | `Sources/Base` | Helpers with no app knowledge: text, math, the logger, the bundle ID. Foundation only. | nothing |
 | **meters** | `Sources/Meters` | The samplers (CPU, memory, disk, network), their history and readings, the config store and paths. Calls Mach, IOKit and sysctl; no AppKit, so it is testable without a menu bar. | base |
 | **interface** | `Sources/Interface` | AppKit views, view controllers, windows. No file-system calls. | meters, base |
-| **app** | `Sources/App` | `main.swift`, `AppDelegate` (where every object is built and wired), `Info.plist`. Kept thin. | everything |
+| **app** | `Sources/App` | `main.swift`, `AppDelegate` (where every object is built and wired), `Info.plist`, `AppIcon.svg`. Kept thin. | everything |
 
 **Dependency direction is one-way: app → interface → meters → base.** Never upward.
 

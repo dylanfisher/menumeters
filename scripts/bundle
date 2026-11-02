@@ -50,11 +50,23 @@ fi
 swift build "${flags[@]}" --product "$product" >&2
 bin="$(swift build "${flags[@]}" --show-bin-path)"
 
+# The icon is drawn once, as Sources/App/AppIcon.svg, and rendered to .icns here, only when the
+# SVG has changed since the last render.
+svg=Sources/App/AppIcon.svg
+icns=.build/AppIcon.icns
+if [ ! -f "$icns" ] || [ "$svg" -nt "$icns" ]; then
+  iconset=".build/AppIcon.iconset"
+  rm -rf "$iconset"
+  swift scripts/render-icon.swift "$svg" "$iconset" >&2
+  iconutil -c icns -o "$icns" "$iconset"
+fi
+
 app=".build/$product.app"
 rm -rf "$app"
-mkdir -p "$app/Contents/MacOS"
+mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 cp Sources/App/Info.plist "$app/Contents/Info.plist"
 cp "$bin/$product" "$app/Contents/MacOS/$product"
+cp "$icns" "$app/Contents/Resources/AppIcon.icns"
 
 # The hardened runtime is on in both cases, so anything it would break shows up now rather than
 # when the app is first notarized. macOS ties permission grants (camera, Full Disk Access) to
