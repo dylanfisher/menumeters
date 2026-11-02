@@ -39,4 +39,6 @@ status item less often, not drawing it differently.
 - A graph scrolls every tick, so a meter showing one changes every tick. The interval sets most
   of the cost: 1 s costs about 1.3% of a core on this Mac, 2 s about half that.
 - A percentage alone changes only when the whole percent does, so an idle Mac redraws rarely.
-- Re-measure on macOS 12 with the 2015 MacBook Pro; the replicant snapshot may be newer than 12.
+- On the 2015 MacBook Pro with macOS 12.7.6, the same release build with the graph redrawing
+  every second takes 50 ms over 30 s, about an eighth of the macOS 27 cost, so the snapshot cost
+  is a newer macOS's. Skipping redraws still pays on both.

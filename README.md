@@ -31,6 +31,7 @@ alone can't build the universal binary or run Swift Testing.
 | Fix formatting | `./scripts/format` |
 | Full gate: format, build, tier rules, tests | `./scripts/check` |
 | Build the universal release `.app` | `./scripts/bundle -c release -a universal` |
+| Run the release on the 2015 MacBook Pro | `./scripts/deploy` |
 
 `scripts/bundle` signs ad hoc unless `SIGN_ID` names a signing identity in your keychain.
 

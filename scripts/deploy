@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Build the universal release and run it on the test Mac, the 2015 MacBook Pro on macOS 12, over
+# SSH: copy it to ~/Applications there, quit the running copy, and open the new one. The host is
+# an SSH config alias, `mbp2015` unless $DEPLOY_HOST names another.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+host="${DEPLOY_HOST:-mbp2015}"
+app=$(./scripts/bundle -c release -a universal)
+id=$(plutil -extract CFBundleIdentifier raw "$app/Contents/Info.plist")
+name=$(basename "$app")
+
+# Quit first, as scripts/dev does: `open` would bring the running copy to the front instead of
+# starting the new build.
+ssh "$host" "osascript -e 'ignoring application responses' -e 'quit app id \"$id\"' \
+  -e 'end ignoring'; for _ in \$(seq 50); do [ -z \"\$(lsappinfo info -only pid -app $id)\" ] \
+  && break; sleep 0.1; done; mkdir -p ~/Applications"
+rsync -a --delete "$app/" "$host:Applications/$name/"
+ssh "$host" "open ~/Applications/$name"
+echo "launched $name on $host ($(git rev-parse --short HEAD))" >&2
