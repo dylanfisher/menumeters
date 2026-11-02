@@ -17,6 +17,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Built from the first state of the config file, which is read off the main thread.
     private var cpuMeter: CPUMeterController?
     private var memoryMeter: MemoryMeterController?
+    private var networkMeter: NetworkMeterController?
     private var settingsWindow: SettingsWindowController?
     /// The last save to the config file; each save waits for the one before, so the file ends
     /// with the last change made.
@@ -60,13 +61,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let cpuMeter = CPUMeterController(config: config.cpu) { [weak self] in
             self?.showSettings()
         }
-        scheduler.add(cpuMeter, intervalSeconds: Self.interval(config.cpu))
+        scheduler.add(cpuMeter, intervalSeconds: config.cpu.scheduledIntervalSeconds)
         self.cpuMeter = cpuMeter
         let memoryMeter = MemoryMeterController(config: config.memory) { [weak self] in
             self?.showSettings()
         }
-        scheduler.add(memoryMeter, intervalSeconds: Self.interval(config.memory))
+        scheduler.add(memoryMeter, intervalSeconds: config.memory.scheduledIntervalSeconds)
         self.memoryMeter = memoryMeter
+        let networkMeter = NetworkMeterController(config: config.network) { [weak self] in
+            self?.showSettings()
+        }
+        scheduler.add(networkMeter, intervalSeconds: config.network.scheduledIntervalSeconds)
+        self.networkMeter = networkMeter
         settingsWindow = SettingsWindowController(
             title: "MenuMeters Settings", state: state, configFile: paths.configFile,
             hasTwoCoreKinds: cpuMeter.hasTwoCoreKinds
@@ -74,13 +80,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func apply(_ config: AppConfig) {
-        guard let cpuMeter, let memoryMeter else {
+        guard let cpuMeter, let memoryMeter, let networkMeter else {
             preconditionFailure("applying a config before the meters exist")
         }
         cpuMeter.apply(config.cpu)
-        scheduler.setInterval(of: cpuMeter, seconds: Self.interval(config.cpu))
+        scheduler.setInterval(of: cpuMeter, seconds: config.cpu.scheduledIntervalSeconds)
         memoryMeter.apply(config.memory)
-        scheduler.setInterval(of: memoryMeter, seconds: Self.interval(config.memory))
+        scheduler.setInterval(of: memoryMeter, seconds: config.memory.scheduledIntervalSeconds)
+        networkMeter.apply(config.network)
+        scheduler.setInterval(of: networkMeter, seconds: config.network.scheduledIntervalSeconds)
     }
 
     private func settingsChanged(_ config: AppConfig) {
@@ -91,15 +99,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             await previous?.value
             await store.save(config)
         }
-    }
-
-    /// The scheduler's interval for a meter: nil while it is off.
-    private static func interval(_ cpu: CPUConfig) -> Double? {
-        cpu.isEnabled ? cpu.intervalSeconds : nil
-    }
-
-    private static func interval(_ memory: MemoryConfig) -> Double? {
-        memory.isEnabled ? memory.intervalSeconds : nil
     }
 
     /// Nothing reads the menu bar while the displays sleep. Yujitach's fork keeps sampling.

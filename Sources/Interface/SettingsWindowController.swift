@@ -11,6 +11,7 @@ public final class SettingsWindowController: NSWindowController {
     private let configFile: URL
     let cpuTab: CPUSettingsViewController
     let memoryTab: MemorySettingsViewController
+    let networkTab: NetworkSettingsViewController
     let problemLabel = NSTextField(wrappingLabelWithString: "")
 
     /// `onChange` gets the whole config after each change a control makes.
@@ -24,10 +25,14 @@ public final class SettingsWindowController: NSWindowController {
         // The tabs are made before `self`, so their changes reach it through these.
         var cpuChange: (CPUConfig) -> Void = { _ in }
         var memoryChange: (MemoryConfig) -> Void = { _ in }
+        var networkChange: (NetworkConfig) -> Void = { _ in }
         cpuTab = CPUSettingsViewController(
             config: state.config.cpu, hasTwoCoreKinds: hasTwoCoreKinds
         ) { cpuChange($0) }
         memoryTab = MemorySettingsViewController(config: state.config.memory) { memoryChange($0) }
+        networkTab = NetworkSettingsViewController(config: state.config.network) {
+            networkChange($0)
+        }
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 480, height: 300),
             styleMask: [.titled, .closable],
@@ -40,6 +45,7 @@ public final class SettingsWindowController: NSWindowController {
         super.init(window: window)
         cpuChange = { [weak self] cpu in self?.change { $0.cpu = cpu } }
         memoryChange = { [weak self] memory in self?.change { $0.memory = memory } }
+        networkChange = { [weak self] network in self?.change { $0.network = network } }
         window.contentView = makeContent()
         window.setContentSize(window.contentView?.fittingSize ?? window.frame.size)
         window.center()
@@ -59,6 +65,8 @@ public final class SettingsWindowController: NSWindowController {
         cpuTab.isEditable = !state.isFileBroken
         memoryTab.show(state.config.memory)
         memoryTab.isEditable = !state.isFileBroken
+        networkTab.show(state.config.network)
+        networkTab.isEditable = !state.isFileBroken
         problemLabel.isHidden = state.problem == nil
         guard let problem = state.problem else { return }
         problemLabel.stringValue =
@@ -75,7 +83,7 @@ public final class SettingsWindowController: NSWindowController {
 
     private func makeContent() -> NSView {
         let tabs = NSTabView()
-        for tab in [cpuTab, memoryTab] as [NSViewController] {
+        for tab in [cpuTab, memoryTab, networkTab] as [NSViewController] {
             let item = NSTabViewItem(viewController: tab)
             item.label = tab.title ?? ""
             tabs.addTabViewItem(item)

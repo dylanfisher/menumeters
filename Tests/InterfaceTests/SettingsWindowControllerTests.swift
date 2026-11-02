@@ -90,3 +90,19 @@ private func controller(
     settings.show(.init(config: AppConfig(), problem: ConfigError("x"), isFileBroken: true))
     #expect(!tab.displayPopUp.isEnabled)
 }
+
+@MainActor
+@Test func theNetworkTabKeepsOneDisplayOnAndHalfSeconds() {
+    var sent: [AppConfig] = []
+    let settings = controller { sent.append($0) }
+    let tab = settings.networkTab
+    _ = tab.view
+    // Arrows alone are on by default, so they can't be turned off until throughput is on.
+    #expect(!tab.arrowsBox.isEnabled)
+    tab.throughputBox.performClick(nil)
+    #expect(sent.last?.network.showsThroughput == true)
+    #expect(tab.arrowsBox.isEnabled)
+    tab.intervalSlider.doubleValue = 3.3
+    tab.intervalSlider.sendAction(tab.intervalSlider.action, to: tab.intervalSlider.target)
+    #expect(sent.last?.network.intervalSeconds == 3.5)
+}
