@@ -13,7 +13,7 @@ private func controller(
     onLoginChange: @escaping (Bool) -> Void = { _ in }
 ) -> SettingsWindowController {
     SettingsWindowController(
-        title: "Test Settings", state: state, configFile: file, hasTwoCoreKinds: true,
+        title: "Test Settings", state: state, configFile: file, hasSeveralCoreKinds: true,
         onChange: onChange, onLoginChange: onLoginChange)
 }
 

@@ -11,8 +11,8 @@ public final class CPUMeterController: NSObject, ScheduledMeter, NSMenuDelegate 
     private let sampler = CPULoadSampler()
     private let topology: CoreTopology
     private var config: CPUConfig
-    /// The cores averaged into each row of the meter: performance then efficiency when the
-    /// kinds are grouped, otherwise one row of every core.
+    /// The cores averaged into each row of the meter: one row per kind of core, fastest first,
+    /// when the kinds are grouped, otherwise one row of every core.
     private var rows: [[Int]]
     private(set) var histories: [RingBuffer<CoreLoad>]
     private var view: CPUMeterView
@@ -48,8 +48,8 @@ public final class CPUMeterController: NSObject, ScheduledMeter, NSMenuDelegate 
         statusItem.isVisible = config.isEnabled
     }
 
-    /// Whether this Mac has performance and efficiency cores, so grouping them shows two rows.
-    public var hasTwoCoreKinds: Bool { topology.hasTwoKinds }
+    /// Whether this Mac has more than one kind of core, so grouping them shows several rows.
+    public var hasSeveralCoreKinds: Bool { topology.hasSeveralKinds }
 
     /// Whether the status item is in the menu bar.
     var isVisible: Bool { statusItem.isVisible }
@@ -93,8 +93,8 @@ public final class CPUMeterController: NSObject, ScheduledMeter, NSMenuDelegate 
     }
 
     private static func rows(config: CPUConfig, topology: CoreTopology) -> [[Int]] {
-        config.groupsCoreKinds && topology.hasTwoKinds
-            ? [topology.performanceCores, topology.efficiencyCores]
+        config.groupsCoreKinds && topology.hasSeveralKinds
+            ? topology.kinds.map(\.cores)
             : [Array(0..<topology.coreCount)]
     }
 
@@ -122,11 +122,12 @@ public final class CPUMeterController: NSObject, ScheduledMeter, NSMenuDelegate 
         menu.addItem(MeterStatusItem.infoItem(SystemStatus.processorName))
         menu.addItem(MeterStatusItem.infoItem(coreSummary))
 
-        if topology.hasTwoKinds {
-            addLoadItem(to: menu, cores: topology.performanceCores, label: "Performance cores")
-            addLoadItem(to: menu, cores: topology.efficiencyCores, label: "Efficiency cores")
+        if topology.hasSeveralKinds {
+            for kind in topology.kinds {
+                addLoadItem(to: menu, cores: kind.cores, label: "\(kind.name) cores")
+            }
         } else {
-            addLoadItem(to: menu, cores: topology.performanceCores, label: "CPU")
+            addLoadItem(to: menu, cores: Array(0..<topology.coreCount), label: "CPU")
         }
         updateLoadItems()
 
@@ -189,9 +190,9 @@ public final class CPUMeterController: NSObject, ScheduledMeter, NSMenuDelegate 
 
     private var coreSummary: String {
         let count = topology.coreCount
-        guard topology.hasTwoKinds else { return "\(count) cores" }
-        return "\(count) cores: \(topology.performanceCores.count) performance, "
-            + "\(topology.efficiencyCores.count) efficiency"
+        guard topology.hasSeveralKinds else { return "\(count) cores" }
+        let kinds = topology.kinds.map { "\($0.cores.count) \($0.name.lowercased())" }
+        return "\(count) cores: \(kinds.joined(separator: ", "))"
     }
 
     private func addLoadItem(to menu: NSMenu, cores: [Int], label: String) {

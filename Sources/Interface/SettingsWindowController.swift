@@ -21,7 +21,7 @@ public final class SettingsWindowController: NSWindowController {
     /// `onChange` gets the whole config after each change a control makes; `onLoginChange`
     /// whether to open at login, which the system keeps rather than the config file.
     public init(
-        title: String, state: ConfigStore.State, configFile: URL, hasTwoCoreKinds: Bool,
+        title: String, state: ConfigStore.State, configFile: URL, hasSeveralCoreKinds: Bool,
         onChange: @escaping (AppConfig) -> Void, onLoginChange: @escaping (Bool) -> Void
     ) {
         self.onLoginChange = onLoginChange
@@ -34,7 +34,7 @@ public final class SettingsWindowController: NSWindowController {
         var networkChange: (NetworkConfig) -> Void = { _ in }
         var diskChange: (DiskConfig) -> Void = { _ in }
         cpuTab = CPUSettingsViewController(
-            config: state.config.cpu, hasTwoCoreKinds: hasTwoCoreKinds
+            config: state.config.cpu, hasSeveralCoreKinds: hasSeveralCoreKinds
         ) { cpuChange($0) }
         memoryTab = MemorySettingsViewController(config: state.config.memory) { memoryChange($0) }
         networkTab = NetworkSettingsViewController(config: state.config.network) {

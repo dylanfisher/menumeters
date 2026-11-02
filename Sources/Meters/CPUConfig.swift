@@ -10,9 +10,8 @@ public struct CPUConfig: Sendable, Equatable, Codable {
     public var showsGraph = true
     /// One column per sample, so this is also how many samples the graph shows.
     public var graphWidthPoints = 33
-    /// On a Mac with performance and efficiency cores, show each kind as its own row: the top
-    /// row performance, the bottom efficiency. Off, or on a Mac with one kind, one row averages
-    /// every core.
+    /// On a Mac with more than one kind of core, show each kind as its own row, the fastest on
+    /// top. Off, or on a Mac with one kind, one row averages every core.
     public var groupsCoreKinds = true
 
     public init() {}

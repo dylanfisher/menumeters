@@ -15,8 +15,8 @@ Settled with the owner on 2026-11-01:
 - **Lean core first.** The main displays of each meter; the rest of the spec's display modes,
   image sets and colors come after phase 7.
 - **No temperature yet.** It needs a private API on Apple silicon.
-- **Core kinds are a setting.** `CPUConfig.groupsCoreKinds` shows performance and efficiency
-  cores as two rows; off, one row averages every core.
+- **Core kinds are a setting.** `CPUConfig.groupsCoreKinds` shows each kind of core, such as
+  performance and efficiency, as its own row; off, one row averages every core.
 - **CPU interval defaults to 2 s,** because each redraw is expensive on macOS 27
   ([0002](decisions/0002-draw-meters-as-button-subviews.md)).
 - **Settings before the other meters,** so each meter adds its own settings as it is built.

@@ -13,19 +13,19 @@ final class CPUSettingsViewController: NSViewController {
     let widthSlider = NSSlider()
     let widthLabel = NSTextField(labelWithString: "")
     let coreKindsBox = NSButton(
-        checkboxWithTitle: "Separate performance and efficiency cores", target: nil, action: nil)
+        checkboxWithTitle: "Show each kind of core as its own row", target: nil, action: nil)
 
     private(set) var config: CPUConfig
-    private let hasTwoCoreKinds: Bool
+    private let hasSeveralCoreKinds: Bool
     private let onChange: (CPUConfig) -> Void
     /// False while the config file has an error: the settings can't be saved then.
     var isEditable = true {
         didSet { refresh() }
     }
 
-    init(config: CPUConfig, hasTwoCoreKinds: Bool, onChange: @escaping (CPUConfig) -> Void) {
+    init(config: CPUConfig, hasSeveralCoreKinds: Bool, onChange: @escaping (CPUConfig) -> Void) {
         self.config = config
-        self.hasTwoCoreKinds = hasTwoCoreKinds
+        self.hasSeveralCoreKinds = hasSeveralCoreKinds
         self.onChange = onChange
         super.init(nibName: nil, bundle: nil)
         title = "CPU"
@@ -47,7 +47,7 @@ final class CPUSettingsViewController: NSViewController {
         let width = CPUConfig.graphWidthPointsRange
         widthSlider.minValue = Double(width.lowerBound)
         widthSlider.maxValue = Double(width.upperBound)
-        if !hasTwoCoreKinds { coreKindsBox.toolTip = "This Mac has one kind of core." }
+        if !hasSeveralCoreKinds { coreKindsBox.toolTip = "This Mac has one kind of core." }
         for control in [
             enabledBox, intervalSlider, percentBox, graphBox, widthSlider, coreKindsBox,
         ] as [NSControl] {
@@ -93,7 +93,7 @@ final class CPUSettingsViewController: NSViewController {
         percentBox.isEnabled = on && config.showsGraph
         graphBox.isEnabled = on && config.showsPercent
         widthSlider.isEnabled = on && config.showsGraph
-        coreKindsBox.isEnabled = on && hasTwoCoreKinds
+        coreKindsBox.isEnabled = on && hasSeveralCoreKinds
     }
 
     @objc private func controlChanged(_ sender: Any?) {

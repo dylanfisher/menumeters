@@ -87,7 +87,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.diskMeter = diskMeter
         settingsWindow = SettingsWindowController(
             title: "MenuMeters Settings", state: state, configFile: paths.configFile,
-            hasTwoCoreKinds: cpuMeter.hasTwoCoreKinds,
+            hasSeveralCoreKinds: cpuMeter.hasSeveralCoreKinds,
             onChange: { [weak self] config in self?.settingsChanged(config) },
             onLoginChange: { [weak self] isOn in self?.loginChanged(isOn) })
     }

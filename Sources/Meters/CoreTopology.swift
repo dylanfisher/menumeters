@@ -1,52 +1,93 @@
 import Foundation
 import IOKit
 
-/// Which logical CPUs are performance cores and which are efficiency cores. Intel Macs have one
-/// kind, all listed as performance cores. The numbering isn't in kind order: on an M1 Max, CPUs
-/// 0–1 are efficiency cores and 2–9 performance cores, so the kinds come from the device tree.
+/// Which logical CPUs are of which kind of core, fastest kind first. Intel Macs have one kind.
+/// The numbering isn't in kind order: on an M1 Max, CPUs 0–1 are efficiency cores and 2–9
+/// performance cores, so the kinds come from the device tree. Each kind's name comes from
+/// macOS (`hw.perflevelN.name`), since the names differ by chip: an M5 Max has "Super" and
+/// "Performance" cores. See docs/decisions/0010-core-kinds-from-perf-levels.md.
 public struct CoreTopology: Sendable, Equatable {
-    public var performanceCores: [Int]
-    public var efficiencyCores: [Int]
+    /// One kind of core: its name as macOS gives it, such as "Efficiency", and its logical CPUs.
+    public struct Kind: Sendable, Equatable {
+        public var name: String
+        public var cores: [Int]
 
-    public init(performanceCores: [Int], efficiencyCores: [Int]) {
-        self.performanceCores = performanceCores
-        self.efficiencyCores = efficiencyCores
+        public init(name: String, cores: [Int]) {
+            self.name = name
+            self.cores = cores
+        }
+    }
+
+    /// One macOS performance level: its name and how many logical CPUs it has.
+    public struct Level: Sendable, Equatable {
+        public var name: String
+        public var coreCount: Int
+
+        public init(name: String, coreCount: Int) {
+            self.name = name
+            self.coreCount = coreCount
+        }
+    }
+
+    /// Fastest first; one kind, named "CPU", on a Mac whose cores are all alike.
+    public var kinds: [Kind]
+
+    public init(kinds: [Kind]) {
+        self.kinds = kinds
     }
 
     /// Every core the same kind.
     public static func uniform(coreCount: Int) -> CoreTopology {
-        CoreTopology(performanceCores: Array(0..<coreCount), efficiencyCores: [])
+        CoreTopology(kinds: [Kind(name: "CPU", cores: Array(0..<coreCount))])
     }
 
-    public var coreCount: Int { performanceCores.count + efficiencyCores.count }
-    public var hasTwoKinds: Bool { !performanceCores.isEmpty && !efficiencyCores.isEmpty }
+    public var coreCount: Int { kinds.reduce(0) { $0 + $1.cores.count } }
+    public var hasSeveralKinds: Bool { kinds.count > 1 }
 
-    /// Builds the topology from each CPU's `cluster-type` letter, `E` or `P`, keyed by logical
-    /// CPU id. Fails when the ids don't cover `0..<coreCount` exactly or a letter is unknown.
-    public static func fromClusterTypes(_ types: [Int: Character], coreCount: Int) throws(Failure)
-        -> CoreTopology
-    {
+    /// The device tree's `cluster-type` letters, fastest first. An M5 Max has P and M; earlier
+    /// Apple silicon has P and E.
+    static let clusterTypesFastestFirst: [Character] = ["P", "M", "E"]
+
+    /// Builds the topology from each CPU's `cluster-type` letter, keyed by logical CPU id, and
+    /// macOS's performance levels, fastest first. The letters present, fastest first, match the
+    /// levels in order. Fails when the ids don't cover `0..<coreCount` exactly, a letter is
+    /// unknown, or the letters' CPU counts don't match the levels'.
+    public static func fromClusterTypes(
+        _ types: [Int: Character], levels: [Level], coreCount: Int
+    ) throws(Failure) -> CoreTopology {
         guard Set(types.keys) == Set(0..<coreCount) else {
             throw .unexpected("cluster types for CPUs \(types.keys.sorted()), not 0..<\(coreCount)")
         }
-        var topology = CoreTopology(performanceCores: [], efficiencyCores: [])
+        var coresByType: [Character: [Int]] = [:]
         for (id, type) in types.sorted(by: { $0.key < $1.key }) {
-            switch type {
-            case "P": topology.performanceCores.append(id)
-            case "E": topology.efficiencyCores.append(id)
-            default: throw .unexpected("CPU \(id) has cluster type \(type)")
+            guard clusterTypesFastestFirst.contains(type) else {
+                throw .unexpected("CPU \(id) has cluster type \(type)")
             }
+            coresByType[type, default: []].append(id)
         }
-        return topology
+        let groups = clusterTypesFastestFirst.compactMap { coresByType[$0] }
+        guard groups.map(\.count) == levels.map(\.coreCount) else {
+            throw .unexpected(
+                "cluster types have \(groups.map(\.count)) CPUs, "
+                    + "performance levels \(levels.map(\.coreCount))")
+        }
+        return CoreTopology(
+            kinds: zip(levels, groups).map { Kind(name: $0.name, cores: $1) })
     }
 
     /// The topology of this Mac with `coreCount` logical CPUs. Reads the device tree only when
-    /// `hw.nperflevels` says there are two kinds of core.
+    /// `hw.nperflevels` says there is more than one kind of core.
     public static func current(coreCount: Int) throws(Failure) -> CoreTopology {
-        guard let levels = Sysctl.int("hw.nperflevels"), levels > 1 else {
+        guard let count = Sysctl.int("hw.nperflevels"), count > 1 else {
             return .uniform(coreCount: coreCount)
         }
-        return try fromClusterTypes(deviceTreeClusterTypes(), coreCount: coreCount)
+        let levels = try (0..<count).map { (level) throws(Failure) in
+            guard let name = Sysctl.string("hw.perflevel\(level).name"),
+                let cores = Sysctl.int("hw.perflevel\(level).logicalcpu")
+            else { throw .unexpected("no name or CPU count for performance level \(level)") }
+            return Level(name: name, coreCount: cores)
+        }
+        return try fromClusterTypes(deviceTreeClusterTypes(), levels: levels, coreCount: coreCount)
     }
 
     public enum Failure: Error, CustomStringConvertible {
