@@ -10,11 +10,12 @@ private let logger = moduleLogger()
 public final class CPUMeterController: NSObject, ScheduledMeter, NSMenuDelegate {
     private let sampler = CPULoadSampler()
     private let topology: CoreTopology
+    private var config: CPUConfig
     /// The cores averaged into each row of the meter: performance then efficiency when the
     /// kinds are grouped, otherwise one row of every core.
-    private let rows: [[Int]]
-    private var histories: [RingBuffer<CoreLoad>]
-    private let view: CPUMeterView
+    private var rows: [[Int]]
+    private(set) var histories: [RingBuffer<CoreLoad>]
+    private var view: CPUMeterView
     private let statusItem: NSStatusItem
     private let showSettings: () -> Void
     private var loadItems: [(cores: [Int], label: String, item: NSMenuItem)] = []
@@ -28,29 +29,55 @@ public final class CPUMeterController: NSObject, ScheduledMeter, NSMenuDelegate 
             logger.error("\(error.description, privacy: .public); treating every core alike")
             topology = .uniform(coreCount: coreCount)
         }
-        rows =
-            config.groupsCoreKinds && topology.hasTwoKinds
-            ? [topology.performanceCores, topology.efficiencyCores] : [Array(0..<coreCount)]
-        histories = rows.map { _ in
-            RingBuffer(capacity: config.graphWidthPoints, filler: CoreLoad.zero)
-        }
+        self.config = config
+        rows = Self.rows(config: config, topology: topology)
+        histories = Self.histories(rowCount: rows.count, config: config)
         view = CPUMeterView(config: config, rowCount: rows.count)
         statusItem = NSStatusBar.system.statusItem(withLength: view.frame.width)
         self.showSettings = showSettings
         super.init()
 
         statusItem.autosaveName = "CPUMeter"
-        guard let button = statusItem.button else {
-            preconditionFailure("a new status item has no button")
-        }
         button.setAccessibilityLabel("CPU usage")
-        view.frame = button.bounds
-        view.autoresizingMask = [.width, .height]
-        button.addSubview(view)
+        place(view)
+        statusItem.isVisible = config.isEnabled
 
         let menu = NSMenu()
         menu.delegate = self
         statusItem.menu = menu
+    }
+
+    /// Whether this Mac has performance and efficiency cores, so grouping them shows two rows.
+    public var hasTwoCoreKinds: Bool { topology.hasTwoKinds }
+
+    /// Whether the status item is in the menu bar.
+    var isVisible: Bool { statusItem.isVisible }
+
+    /// The status item's width in points.
+    var widthPoints: CGFloat { statusItem.length }
+
+    /// Shows the meter as `config` says, keeping as much history as still fits. The interval is
+    /// the scheduler's to apply.
+    public func apply(_ config: CPUConfig) {
+        let old = self.config
+        self.config = config
+        statusItem.isVisible = config.isEnabled
+        let newRows = Self.rows(config: config, topology: topology)
+        if newRows != rows {
+            rows = newRows
+            histories = Self.histories(rowCount: rows.count, config: config)
+        } else if config.graphWidthPoints != old.graphWidthPoints {
+            histories = histories.map { $0.resized(capacity: config.graphWidthPoints) }
+        }
+        var display = old
+        display.isEnabled = config.isEnabled
+        display.intervalSeconds = config.intervalSeconds
+        guard display != config else { return }
+        view.removeFromSuperview()
+        view = CPUMeterView(config: config, rowCount: rows.count)
+        statusItem.length = view.frame.width
+        place(view)
+        view.show(histories: histories)
     }
 
     public func tick() {
@@ -60,6 +87,31 @@ public final class CPUMeterController: NSObject, ScheduledMeter, NSMenuDelegate 
         }
         view.show(histories: histories)
         if menuIsOpen { updateLoadItems() }
+    }
+
+    private var button: NSStatusBarButton {
+        guard let button = statusItem.button else {
+            preconditionFailure("a new status item has no button")
+        }
+        return button
+    }
+
+    private func place(_ view: CPUMeterView) {
+        view.frame = NSRect(x: 0, y: 0, width: view.frame.width, height: button.bounds.height)
+        view.autoresizingMask = [.width, .height]
+        button.addSubview(view)
+    }
+
+    private static func rows(config: CPUConfig, topology: CoreTopology) -> [[Int]] {
+        config.groupsCoreKinds && topology.hasTwoKinds
+            ? [topology.performanceCores, topology.efficiencyCores]
+            : [Array(0..<topology.coreCount)]
+    }
+
+    private static func histories(rowCount: Int, config: CPUConfig) -> [RingBuffer<CoreLoad>] {
+        (0..<rowCount).map { _ in
+            RingBuffer(capacity: config.graphWidthPoints, filler: CoreLoad.zero)
+        }
     }
 
     // MARK: Menu

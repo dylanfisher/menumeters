@@ -12,23 +12,80 @@ private let logger = moduleLogger()
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let paths: AppPaths
-    private let settingsWindow: SettingsWindowController
+    private let store: ConfigStore
     private let scheduler = MeterScheduler()
+    /// Built from the first state of the config file, which is read off the main thread.
     private var cpuMeter: CPUMeterController?
+    private var settingsWindow: SettingsWindowController?
+    /// The last save to the config file; each save waits for the one before, so the file ends
+    /// with the last change made.
+    private var saving: Task<Void, Never>?
 
     override init() {
         paths = .standard
-        settingsWindow = SettingsWindowController(title: "MenuMeters Settings")
+        store = ConfigStore(file: paths.configFile)
         super.init()
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         logger.info("launched; config file at \(self.paths.configFile.path)")
-        let config = CPUConfig()
-        let cpuMeter = CPUMeterController(config: config) { [weak self] in self?.showSettings() }
-        scheduler.add(cpuMeter, intervalSeconds: config.intervalSeconds)
-        self.cpuMeter = cpuMeter
         pauseWhileDisplaysSleep()
+        let store = store
+        Task {
+            await store.start()
+            for await state in store.states { apply(state) }
+        }
+    }
+
+    /// Opening the app again while it runs, as from the Finder, shows the settings: the only
+    /// way to them when every meter is off.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool {
+        showSettings()
+        return false
+    }
+
+    /// Applies a state of the config file: to the meters, and to the settings window.
+    private func apply(_ state: ConfigStore.State) {
+        guard let settingsWindow else {
+            start(with: state)
+            return
+        }
+        apply(state.config)
+        settingsWindow.show(state)
+    }
+
+    private func start(with state: ConfigStore.State) {
+        let config = state.config
+        let cpuMeter = CPUMeterController(config: config.cpu) { [weak self] in
+            self?.showSettings()
+        }
+        scheduler.add(cpuMeter, intervalSeconds: Self.interval(config.cpu))
+        self.cpuMeter = cpuMeter
+        settingsWindow = SettingsWindowController(
+            title: "MenuMeters Settings", state: state, configFile: paths.configFile,
+            hasTwoCoreKinds: cpuMeter.hasTwoCoreKinds
+        ) { [weak self] config in self?.settingsChanged(config) }
+    }
+
+    private func apply(_ config: AppConfig) {
+        guard let cpuMeter else { preconditionFailure("applying a config before the meters exist") }
+        cpuMeter.apply(config.cpu)
+        scheduler.setInterval(of: cpuMeter, seconds: Self.interval(config.cpu))
+    }
+
+    private func settingsChanged(_ config: AppConfig) {
+        apply(config)
+        let previous = saving
+        let store = store
+        saving = Task {
+            await previous?.value
+            await store.save(config)
+        }
+    }
+
+    /// The scheduler's interval for a meter: nil while it is off.
+    private static func interval(_ cpu: CPUConfig) -> Double? {
+        cpu.isEnabled ? cpu.intervalSeconds : nil
     }
 
     /// Nothing reads the menu bar while the displays sleep. Yujitach's fork keeps sampling.
@@ -51,6 +108,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func showSettings() {
+        guard let settingsWindow else { return }
         settingsWindow.showWindow(nil)
         // `NSApp.activate()` needs macOS 14.
         NSApp.activate(ignoringOtherApps: true)

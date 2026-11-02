@@ -23,6 +23,15 @@ public struct RingBuffer<Element> {
         }
     }
 
+    /// A copy with room for `capacity` elements, keeping the newest that fit. Allocates, so it
+    /// is for a settings change, not the tick.
+    public func resized(capacity: Int) -> RingBuffer {
+        // Slot 0 holds an element or the filler; either serves as the new filler.
+        var copy = RingBuffer(capacity: capacity, filler: storage[0])
+        for index in max(0, count - capacity)..<count { copy.append(self[index]) }
+        return copy
+    }
+
     /// The element `index` places after the oldest: 0 is the oldest, `count - 1` the newest.
     public subscript(index: Int) -> Element {
         precondition(index >= 0 && index < count, "index \(index) is outside 0..<\(count)")
