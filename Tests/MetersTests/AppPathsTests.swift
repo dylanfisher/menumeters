@@ -9,6 +9,9 @@ import Testing
     let paths = AppPaths(home: home)
     #expect(paths.configFile.path == "/tmp/app-paths-test/config.json")
     #expect(paths.dataDirectory.path == home.path)
+    #expect(
+        paths.launchAgentFile.path
+            == "/tmp/app-paths-test/LaunchAgents/com.dylanfisher.MenuMeters.plist")
 }
 
 @Test func theStandardPathsAreUnderTheUsersHome() {
@@ -17,4 +20,5 @@ import Testing
     #expect(paths.configFile.path.hasPrefix(home + "/.config/menumeters/"))
     #expect(paths.configFile.lastPathComponent == AppPaths.configFileName)
     #expect(paths.dataDirectory.lastPathComponent == appDirectoryName)
+    #expect(paths.launchAgentFile.path == home + "/Library/LaunchAgents/\(bundleIdentifier).plist")
 }

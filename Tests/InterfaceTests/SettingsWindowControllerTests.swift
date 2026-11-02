@@ -9,11 +9,12 @@ private let good = ConfigStore.State(config: AppConfig(), problem: nil, isFileBr
 
 @MainActor
 private func controller(
-    _ state: ConfigStore.State = good, onChange: @escaping (AppConfig) -> Void = { _ in }
+    _ state: ConfigStore.State = good, onChange: @escaping (AppConfig) -> Void = { _ in },
+    onLoginChange: @escaping (Bool) -> Void = { _ in }
 ) -> SettingsWindowController {
     SettingsWindowController(
         title: "Test Settings", state: state, configFile: file, hasTwoCoreKinds: true,
-        onChange: onChange)
+        onChange: onChange, onLoginChange: onLoginChange)
 }
 
 @MainActor
@@ -119,4 +120,22 @@ private func controller(
     tab.enabledBox.performClick(nil)
     #expect(sent.last?.disk.isEnabled == false)
     #expect(!tab.intervalSlider.isEnabled)
+}
+
+@MainActor
+@Test func theLoginCheckboxAsksAndShowsWhatTheSystemSays() {
+    var asked: [Bool] = []
+    let settings = controller(onLoginChange: { asked.append($0) })
+    settings.showLogin(.off)
+    settings.loginBox.performClick(nil)
+    #expect(asked == [true])
+    settings.showLogin(.needsApproval)
+    #expect(settings.loginBox.state == .on)
+    #expect(!settings.loginLabel.isHidden)
+    settings.showLogin(
+        .off, failure: LoginItem.Failure(reason: "Opening at login couldn't be changed"))
+    #expect(settings.loginBox.state == .off)
+    #expect(settings.loginLabel.stringValue == "Opening at login couldn't be changed")
+    settings.showLogin(.on)
+    #expect(settings.loginLabel.isHidden)
 }

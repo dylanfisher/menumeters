@@ -14,12 +14,17 @@ public final class SettingsWindowController: NSWindowController {
     let networkTab: NetworkSettingsViewController
     let diskTab: DiskSettingsViewController
     let problemLabel = NSTextField(wrappingLabelWithString: "")
+    let loginBox = NSButton(checkboxWithTitle: "Open MenuMeters at login", target: nil, action: nil)
+    let loginLabel = NSTextField(wrappingLabelWithString: "")
+    private let onLoginChange: (Bool) -> Void
 
-    /// `onChange` gets the whole config after each change a control makes.
+    /// `onChange` gets the whole config after each change a control makes; `onLoginChange`
+    /// whether to open at login, which the system keeps rather than the config file.
     public init(
         title: String, state: ConfigStore.State, configFile: URL, hasTwoCoreKinds: Bool,
-        onChange: @escaping (AppConfig) -> Void
+        onChange: @escaping (AppConfig) -> Void, onLoginChange: @escaping (Bool) -> Void
     ) {
+        self.onLoginChange = onLoginChange
         config = state.config
         self.onChange = onChange
         self.configFile = configFile
@@ -82,6 +87,21 @@ public final class SettingsWindowController: NSWindowController {
             : "\(problem.reason)."
     }
 
+    /// Shows whether the app opens at login, and why a change didn't take when one didn't.
+    public func showLogin(_ state: LoginItem.State, failure: LoginItem.Failure? = nil) {
+        loginBox.state = state == .off ? .off : .on
+        let message =
+            failure?.reason
+            ?? (state == .needsApproval
+                ? "Allow MenuMeters in System Settings, General, Login Items." : nil)
+        loginLabel.stringValue = message ?? ""
+        loginLabel.isHidden = message == nil
+    }
+
+    @objc private func loginChanged(_ sender: Any?) {
+        onLoginChange(loginBox.state == .on)
+    }
+
     private func change(_ edit: (inout AppConfig) -> Void) {
         edit(&config)
         onChange(config)
@@ -104,7 +124,13 @@ public final class SettingsWindowController: NSWindowController {
         problemLabel.textColor = .systemRed
         problemLabel.preferredMaxLayoutWidth = 440
 
-        let stack = NSStackView(views: [tabs, problemLabel, fileRow])
+        loginBox.target = self
+        loginBox.action = #selector(loginChanged(_:))
+        loginLabel.textColor = .secondaryLabelColor
+        loginLabel.preferredMaxLayoutWidth = 440
+        loginLabel.isHidden = true
+
+        let stack = NSStackView(views: [tabs, problemLabel, loginBox, loginLabel, fileRow])
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.edgeInsets = NSEdgeInsets(top: 12, left: 20, bottom: 20, right: 20)

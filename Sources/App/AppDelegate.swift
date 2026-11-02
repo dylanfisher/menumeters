@@ -15,6 +15,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let store: ConfigStore
     private let scheduler = MeterScheduler()
     private let volumeStore = VolumeStore()
+    private let loginItem: LoginItem
     /// Built from the first state of the config file, which is read off the main thread.
     private var cpuMeter: CPUMeterController?
     private var memoryMeter: MemoryMeterController?
@@ -29,6 +30,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     override init() {
         paths = .standard
         store = ConfigStore(file: paths.configFile)
+        guard let executable = Bundle.main.executableURL else {
+            preconditionFailure("the app bundle has no executable")
+        }
+        loginItem = .standard(paths: paths, executable: executable)
         super.init()
     }
 
@@ -87,8 +92,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         hiddenMeterNotice?.scheduleCheck()
         settingsWindow = SettingsWindowController(
             title: "MenuMeters Settings", state: state, configFile: paths.configFile,
-            hasTwoCoreKinds: cpuMeter.hasTwoCoreKinds
-        ) { [weak self] config in self?.settingsChanged(config) }
+            hasTwoCoreKinds: cpuMeter.hasTwoCoreKinds,
+            onChange: { [weak self] config in self?.settingsChanged(config) },
+            onLoginChange: { [weak self] isOn in self?.loginChanged(isOn) })
     }
 
     private func apply(_ config: AppConfig) {
@@ -112,6 +118,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             ("Network", { networkMeter.isHiddenByMenuBar }),
             ("Disk", { diskMeter.isHiddenByMenuBar }),
         ]
+    }
+
+    private func loginChanged(_ isOn: Bool) {
+        let loginItem = loginItem
+        Task {
+            do throws(LoginItem.Failure) {
+                settingsWindow?.showLogin(try await loginItem.set(isOn))
+            } catch {
+                logger.error("\(error.reason, privacy: .public)")
+                settingsWindow?.showLogin(await loginItem.state(), failure: error)
+            }
+        }
+    }
+
+    /// Reads whether the app opens at login, which the user can also change in System Settings.
+    private func refreshLogin() {
+        let loginItem = loginItem
+        Task { settingsWindow?.showLogin(await loginItem.state()) }
     }
 
     private func settingsChanged(_ config: AppConfig) {
@@ -147,6 +171,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func showSettings() {
         guard let settingsWindow else { return }
+        refreshLogin()
         settingsWindow.showWindow(nil)
         // `NSApp.activate()` needs macOS 14.
         NSApp.activate(ignoringOtherApps: true)
