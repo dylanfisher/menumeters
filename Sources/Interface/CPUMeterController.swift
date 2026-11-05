@@ -22,6 +22,9 @@ public final class CPUMeterController: NSObject, ScheduledMeter, NSMenuDelegate 
     private let processSampler = ProcessSampler()
     /// One line per top process, made when the menu opens; a line with no process is hidden.
     private(set) var processItems: [NSMenuItem] = []
+    /// Each listed process's name and 16-point icon, kept while the menu is open so a tick
+    /// doesn't copy an app's icon again.
+    private(set) var processLabels: [Int32: (name: String, icon: NSImage?)] = [:]
 
     /// How many processes the menu lists, yujitach's default.
     static let topProcessCount = 5
@@ -114,6 +117,7 @@ public final class CPUMeterController: NSObject, ScheduledMeter, NSMenuDelegate 
     public func menuDidClose(_ menu: NSMenu) {
         menuIsOpen = false
         processSampler.reset()
+        processLabels = [:]
     }
 
     private func rebuild(_ menu: NSMenu) {
@@ -165,22 +169,41 @@ public final class CPUMeterController: NSObject, ScheduledMeter, NSMenuDelegate 
         }
     }
 
+    /// Shows the latest top processes, changing only the lines whose text or icon changed, so
+    /// the open menu doesn't redraw the rest.
     func updateProcessItems() {
         let top = processSampler.sample(top: Self.topProcessCount)
         for (index, item) in processItems.enumerated() {
             guard index < top.count else {
-                item.isHidden = index > 0
-                if index == 0 { item.title = "No processes using the CPU" }
+                Self.show(item, index == 0 ? "No processes using the CPU" : nil, image: nil)
                 continue
             }
             let process = top[index]
-            let app = NSRunningApplication(processIdentifier: process.pid)
-            item.title = "\(app?.localizedName ?? process.name)  \(Self.percent(process.share))"
-            let icon = app?.icon?.copy() as? NSImage
-            icon?.size = NSSize(width: 16, height: 16)
-            item.image = icon
-            item.isHidden = false
+            let label = label(for: process)
+            Self.show(item, "\(label.name)  \(Self.percent(process.share))", image: label.icon)
         }
+    }
+
+    private func label(for process: ProcessLoad) -> (name: String, icon: NSImage?) {
+        if let label = processLabels[process.pid] { return label }
+        let app = NSRunningApplication(processIdentifier: process.pid)
+        let icon = app?.icon?.copy() as? NSImage
+        icon?.size = NSSize(width: 16, height: 16)
+        let label = (name: app?.localizedName ?? process.name, icon: icon)
+        processLabels[process.pid] = label
+        return label
+    }
+
+    /// Shows `title` and `image` on `item`, or hides it for a nil title, setting only what
+    /// differs.
+    private static func show(_ item: NSMenuItem, _ title: String?, image: NSImage?) {
+        guard let title else {
+            if !item.isHidden { item.isHidden = true }
+            return
+        }
+        if item.title != title { item.title = title }
+        if item.image !== image { item.image = image }
+        if item.isHidden { item.isHidden = false }
     }
 
     /// A share of one core as Activity Monitor writes it: "12.3%".
@@ -204,9 +227,10 @@ public final class CPUMeterController: NSObject, ScheduledMeter, NSMenuDelegate 
     private func updateLoadItems() {
         for (cores, label, item) in loadItems {
             let load = CoreLoad.average(of: sampler.loads, cores: cores)
-            item.title =
+            let title =
                 "\(label): \(CPUDrawState.percent(load.user))% user, "
                 + "\(CPUDrawState.percent(load.system))% system"
+            if item.title != title { item.title = title }
         }
     }
 

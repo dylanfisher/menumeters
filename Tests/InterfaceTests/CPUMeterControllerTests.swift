@@ -44,3 +44,18 @@ import Testing
     meter.menuDidClose(menu)
     #expect(CPUMeterController.percent(0.123) == "12.3%")
 }
+
+@MainActor
+@Test func theMenuKeepsEachProcessLabelUntilItCloses() {
+    let meter = CPUMeterController(config: CPUConfig()) {}
+    let menu = NSMenu()
+    meter.menuWillOpen(menu)
+    let end = Date().addingTimeInterval(0.2)
+    var spins = 0
+    while Date() < end { spins &+= 1 }
+    meter.updateProcessItems()
+    // This process worked, so it is listed and its label is kept for the next tick.
+    #expect(meter.processLabels[getpid()] != nil)
+    meter.menuDidClose(menu)
+    #expect(meter.processLabels.isEmpty)
+}

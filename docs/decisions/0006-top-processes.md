@@ -18,9 +18,13 @@ users.
 ## Decision
 
 The list comes from `proc_pid_rusage` and shows the user's own processes, five by default, each
-as a share of one core over the time since the last sample, the first after half a second. Apps
-show their own name and icon. The CPU times come in Mach time units, so they are converted with
-`mach_timebase_info`: 125/3 of a nanosecond each on Apple silicon, one on Intel.
+as a share of one core over the time since the last sample, the first after half a second. The
+processes come from `proc_listpids` with `PROC_UID_ONLY`, which on the M1 Max gave exactly the 497
+of 819 processes `proc_pid_rusage` could read, so no tick spends calls on processes it will be
+refused. Each listed process's name and icon are kept until the menu closes: copying five icons a
+tick cost almost half as much as reading every process. Apps show their own name and icon. The
+CPU times come in Mach time units, so they are converted with `mach_timebase_info`: 125/3 of a
+nanosecond each on Apple silicon, one on Intel.
 
 ## Alternatives considered
 
